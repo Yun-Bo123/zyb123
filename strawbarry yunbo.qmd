@@ -1,0 +1,134 @@
+---
+title: ""Other Chemicals [Organic vs Conventional by state]""
+author: "YunBo Zhang"
+format: html
+editor: visual
+---
+
+data cleaning
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(stringr)
+file_path <- "C:/Users/Cikey/Desktop/data/C21919F3-D1C4-3BE6-A85A-94BCADA321FC.csv"
+df_raw <- read_csv(file_path, show_col_types = FALSE) %>%
+  clean_names()
+glimpse(df_raw)
+head(df_raw)
+df_other <- df_raw %>%
+  filter(domain == "CHEMICAL, OTHER")
+df_other %>%
+  select(domain, domain_category) %>%
+  head()
+df_other <- df_other %>%
+  mutate(
+    inside = str_extract(domain_category, "\\(.*\\)") %>%
+      str_remove_all("[()]") %>%
+      str_squish()
+  )
+df_other %>%
+  select(domain_category, inside) %>%
+  head()
+df_other <- df_other %>%
+  mutate(
+    chemical_name = str_trim(str_extract(inside, ".*(?==)")),  
+    chemical_value = str_trim(str_extract(inside, "(?<=\\=).*")) 
+  )
+df_other %>%
+  select(inside, chemical_name, chemical_value) %>%
+  head()
+df_other <- df_other %>%
+  mutate(
+    chemical_value = as.numeric(str_replace_all(chemical_value, ",", "")),
+    value = chemical_value  
+  )
+df_other %>%
+  select(chemical_name, value) %>%
+  head()
+df_other %>%
+  summarise(
+    total_rows = n(),
+    missing_value = sum(is.na(value))
+  )
+library(tidyverse)
+df <- read_csv("C:/Users/Cikey/Desktop/data/strawberries_other_clean.csv", show_col_types = FALSE)
+df_cleaned <- df %>%
+  select(-any_of(c("domain", "domain_category", "value", "cv_percent", "inside")))
+output_path <- "C:/Users/Cikey/Desktop/data/strawberries_other_clean_v2.csv"
+write_csv(df_cleaned, output_path)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+data analysis(EDA)
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+file_path <- "C:/Users/Cikey/Desktop/data/strawberries_other_clean_v2.csv"
+df <- read_csv(file_path, show_col_types = FALSE) %>%
+  clean_names()
+glimpse(df)
+
+df_clean <- df %>%
+  filter(!is.na(chemical_value)) %>%               
+  mutate(
+    chemical_value = as.numeric(str_replace_all(chemical_value, ",", "")), 
+    state = str_to_title(state),                   
+    chemical_name = str_to_title(chemical_name)   
+  )
+summary(df_clean$chemical_value)
+state_summary <- df_clean %>%
+  group_by(state) %>%
+  summarise(
+    mean_value = mean(chemical_value, na.rm = TRUE),
+    median_value = median(chemical_value, na.rm = TRUE),
+    total_value = sum(chemical_value, na.rm = TRUE),
+    count = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(mean_value))
+
+head(state_summary)
+top_chemicals <- df_clean %>%
+  count(chemical_name, sort = TRUE) %>%
+  slice_head(n = 10)
+
+ggplot(top_chemicals, aes(x = reorder(chemical_name, n), y = n)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Top 10 Most Common 'Other Chemicals' in Strawberries",
+    x = "Chemical Name",
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 13)
+ggplot(state_summary, aes(x = reorder(state, mean_value), y = mean_value)) +
+  geom_col(fill = "seagreen3") +
+  coord_flip() +
+  labs(
+    title = "Average 'Other Chemical' Value by State",
+    x = "State",
+    y = "Average Chemical Value"
+  ) +
+  theme_minimal(base_size = 13)
+
+
+
+
+
+```
